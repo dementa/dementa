@@ -1,26 +1,223 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---- Light and dark mode ----
+   Dementa OS puts the "dark" class on the desktop. App windows use bg-surface for their
+   background and the slate scale for text, borders and panels; in dark mode the slate scale is
+   flipped (slate-50 becomes the darkest, slate-900 the lightest), so the same classes work in
+   both modes. Things that must stay dark in both (taskbar, Start menu) use zinc instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-surface: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-surface: #1b2130;
+  --color-slate-50: #171c28;
+  --color-slate-100: #212838;
+  --color-slate-200: #2d3546;
+  --color-slate-300: #3d4659;
+  --color-slate-400: #67728a;
+  --color-slate-500: #8c96ab;
+  --color-slate-600: #a9b2c4;
+  --color-slate-700: #c6cdd9;
+  --color-slate-800: #e1e5ed;
+  --color-slate-900: #eef1f6;
+  --color-slate-950: #f7f8fb;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #000;
+  color: #0f172a;
+  font-family: var(--font-sans);
+}
+
+/* Boot screen */
+.boot-fade {
+  animation: boot-fade 0.8s ease-out both;
+}
+
+@keyframes boot-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.boot-bar {
+  width: 100%;
+  transform-origin: left;
+  animation: boot-bar ease-in-out forwards;
+}
+
+@keyframes boot-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.boot-dots {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.boot-dots span {
+  position: absolute;
+  inset: 0;
+  animation: boot-orbit 1.6s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+}
+
+.boot-dots span::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+@keyframes boot-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Desktop */
+.desktop-in {
+  animation: boot-fade 0.5s ease-out both;
+}
+
+.menu-pop {
+  animation: menu-pop 0.15s ease-out both;
+}
+
+@keyframes menu-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dock-item {
+  transition: transform 0.15s ease-out;
+  transform-origin: bottom center;
+}
+
+@media (hover: hover) {
+  .dock-item:hover {
+    transform: scale(1.3) translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.dock-scroll {
+  scrollbar-width: none;
+}
+
+.dock-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Power-on screen */
+.power-pulse {
+  animation: power-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes power-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(94, 231, 223, 0);
+  }
+  50% {
+    box-shadow: 0 0 40px 4px rgba(94, 231, 223, 0.35);
+  }
+}
+
+/* Shut down / restart */
+.shutdown-in {
+  animation: shutdown-in 0.4s ease-out both;
+}
+
+@keyframes shutdown-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Window snap preview */
+.snap-preview {
+  animation: snap-preview 0.15s ease-out both;
+}
+
+@keyframes snap-preview {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Browser page-loading bar */
+.browser-loading {
+  transform-origin: left;
+  animation: browser-loading 1.6s ease-out infinite;
+}
+
+@keyframes browser-loading {
+  from {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  80% {
+    transform: scaleX(0.9);
+    opacity: 1;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 0;
+  }
 }

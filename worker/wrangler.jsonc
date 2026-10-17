@@ -1,0 +1,10 @@
+// Cloudflare configuration for the Dementa OS cloud Worker.
+// Setup steps are in worker/README.md.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "dementa-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "dementa-os" }],
+  "observability": { "enabled": true }
+}

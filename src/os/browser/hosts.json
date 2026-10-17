@@ -1,0 +1,38 @@
+{
+  "//": "Web addresses the Dementa OS browser may open. Read by the web app, next.config.ts (CSP) and the Windows app (electron/main.cjs). A leading '*.' allows any subdomain.",
+  "embeddable": [
+    "simple.wikipedia.org",
+    "en.wikipedia.org",
+    "*.wikimedia.org",
+    "en.wiktionary.org",
+    "kids.nationalgeographic.com",
+    "www.timeforkids.com",
+    "www.openstreetmap.org",
+    "www.mathsisfun.com",
+    "www.desmos.com",
+    "www.geogebra.org",
+    "www.storylineonline.net",
+    "www.gutenberg.org",
+    "www.solarsystemscope.com",
+    "phet.colorado.edu",
+    "code.org"
+  ],
+  "appOnly": [
+    "chatgpt.com",
+    "gemini.google.com",
+    "copilot.microsoft.com",
+    "claude.ai",
+    "github.com",
+    "gist.github.com",
+    "duckduckgo.com",
+    "duck.ai"
+  ],
+  "signIn": [
+    "auth.openai.com",
+    "auth0.openai.com",
+    "accounts.google.com",
+    "login.live.com",
+    "login.microsoftonline.com",
+    "account.microsoft.com"
+  ]
+}

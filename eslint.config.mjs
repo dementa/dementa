@@ -12,10 +12,16 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    // The Windows app's Electron files are CommonJS, which uses require().
+    files: ["electron/**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     ignores: [
       "node_modules/**",
       ".next/**",
       "out/**",
+      "dist/**",
       "build/**",
       "next-env.d.ts",
     ],

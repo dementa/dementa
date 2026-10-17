@@ -6,22 +6,90 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "desktop:export": "DEMENTA_TARGET=desktop next build",
+    "desktop:start": "npm run desktop:export && DEMENTA_KIOSK=0 electron .",
+    "desktop:test": "npm run desktop:export && DEMENTA_SELFTEST=1 electron .",
+    "desktop:dist": "npm run desktop:export && electron-builder --win --x64",
+    "cloud:dev": "node --env-file-if-exists=.env.local worker/dev/server.ts",
+    "cloud:check": "tsc -p worker",
+    "cloud:deploy": "node --env-file-if-exists=.env.local node_modules/wrangler/bin/wrangler.js deploy -c worker/wrangler.jsonc",
+    "desktop:dist:mac": "npm run desktop:export && electron-builder --mac --x64",
+    "cloud:check-keys": "node --env-file-if-exists=.env.local scripts/check-cloudflare.mjs"
   },
   "dependencies": {
+    "@tiptap/extension-character-count": "^2.11.5",
+    "@tiptap/extension-highlight": "^2.11.5",
+    "@tiptap/extension-placeholder": "^2.11.5",
+    "@tiptap/extension-text-align": "^2.11.5",
+    "@tiptap/extension-underline": "^2.11.5",
+    "@tiptap/pm": "^2.11.5",
+    "@tiptap/react": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
+    "lucide-react": "^0.468.0",
+    "next": "15.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "electron": "^42.11.15",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "@eslint/eslintrc": "^3"
-  }
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "wrangler": "^4.145.0"
+  },
+  "description": "Dementa OS: a safe, simulated computer desktop for students.",
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "org.dementa.os",
+    "productName": "Dementa OS",
+    "directories": {
+      "output": "dist",
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "electron/**",
+      "out/**",
+      "src/os/browser/hosts.json",
+      "package.json",
+      "!**/node_modules/**"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "electron/assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "runAfterFinish": true,
+      "artifactName": "Dementa-OS-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Dementa-OS-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "electron/assets/icon.png",
+      "category": "public.app-category.education",
+      "identity": null,
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "artifactName": "Dementa-OS-${version}-mac.${ext}"
+    }
+  },
+  "author": "Dementa"
 }
