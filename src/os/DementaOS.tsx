@@ -28,6 +28,7 @@ import { BrowserApp } from "./browser/BrowserApp";
 import { AppTile } from "./common";
 import { ContextMenu, menuAt, type MenuEntry, type OpenMenu } from "./ContextMenu";
 import { DEFAULT_DESKTOP_VIEW, DesktopIcons, resetDesktopLayout, type DesktopView, type IconSort } from "./Desktop";
+import { DocsApp, type DocsRequest } from "./docs/DocsApp";
 import { PropertiesDialog, type PropertiesInfo } from "./PropertiesDialog";
 import { FilesApp, type FilesRequest } from "./FilesApp";
 import { SettingsApp } from "./SettingsApp";
@@ -92,6 +93,8 @@ export function DementaOS() {
   const systemDark = useSystemDark();
   /** Set when something asks Files to show a particular file. */
   const [filesRequest, setFilesRequest] = useState<FilesRequest | null>(null);
+  /** Set when Files asks Docs to open a document. */
+  const [docsRequest, setDocsRequest] = useState<DocsRequest | null>(null);
   const [properties, setProperties] = useState<PropertiesInfo | null>(null);
   const closeProperties = useCallback(() => setProperties(null), []);
 
@@ -289,7 +292,15 @@ export function DementaOS() {
               onOpen={open}
             />
           ) : win.appId === "files" ? (
-            <FilesApp request={filesRequest} />
+            <FilesApp
+              request={filesRequest}
+              onOpenDocument={(path) => {
+                setDocsRequest({ path, nonce: Date.now() });
+                open("docs");
+              }}
+            />
+          ) : win.appId === "docs" ? (
+            <DocsApp request={docsRequest} />
           ) : win.appId === "browser" ? (
             <BrowserApp onActivate={() => dispatch({ type: "focus", appId: "browser" })} />
           ) : (

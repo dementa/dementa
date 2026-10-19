@@ -42,7 +42,7 @@ export interface AppDef {
 }
 
 export const APPS: AppDef[] = [
-  { id: "docs", name: "Docs", kind: "Office", icon: FileText, color: "linear-gradient(135deg,#4f8dfd,#2a5bd7)", blurb: "Write stories, essays and reports." },
+  { id: "docs", name: "Docs", kind: "Office", icon: FileText, color: "linear-gradient(135deg,#4f8dfd,#2a5bd7)", blurb: "Write stories, essays and reports.", size: { w: 1180, h: 720 } },
   { id: "sheets", name: "Sheets", kind: "Office", icon: Sheet, color: "linear-gradient(135deg,#34c77b,#16935a)", blurb: "Make tables, do maths and draw charts." },
   { id: "slides", name: "Slides", kind: "Office", icon: Presentation, color: "linear-gradient(135deg,#ffb03a,#f07b16)", blurb: "Build presentations and slideshows." },
   { id: "browser", name: "Browser", kind: "Internet", icon: Globe, color: "linear-gradient(135deg,#38bdf8,#0e7ad1)", blurb: "Browse the web.", size: { w: 960, h: 640 } },
@@ -55,7 +55,7 @@ export const APPS: AppDef[] = [
 ];
 
 /** Apps that work today; the rest still show "Coming soon". */
-export const READY_APPS = new Set<AppId>(["browser", "files", "settings"]);
+export const READY_APPS = new Set<AppId>(["docs", "browser", "files", "settings"]);
 
 export function getApp(id: AppId): AppDef {
   return APPS.find((a) => a.id === id)!;

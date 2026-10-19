@@ -100,6 +100,33 @@ export interface FilesRequest {
   nonce: number;
 }
 
+/**
+ * Files as an app's Open or Save window, like other operating systems: the same explorer, plus a
+ * bar at the bottom for choosing a file (Open) or naming one (Save).
+ */
+export interface FilePicker {
+  mode: "open" | "save";
+  /** Folder to start in, e.g. "Documents". */
+  folder: string;
+  /** Files that can be chosen; other files are hidden. Folders always show. */
+  accept: RegExp;
+  /** Save only: the suggested name, without the extension. */
+  name?: string;
+  /** Save only: added to the name, e.g. ".html". */
+  extension?: string;
+  /** The chosen file's full path. */
+  onPick: (path: string) => void;
+  onCancel: () => void;
+  /** Open only: also offer a file from this computer (not Dementa Cloud), e.g. accept ".docx,.txt". */
+  fromComputer?: { accept: string; onFile: (file: File) => void };
+}
+
+/** "My story" → "My story.html"; slashes would make folders, so they become dashes. */
+function saveFileName(name: string, extension: string) {
+  const ext = new RegExp(`${extension.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+  return `${name.trim().replace(ext, "").replace(/[\\/]/g, "-")}${extension}`;
+}
+
 type SortBy = "name" | "modified" | "size" | "kind";
 
 const SORT_LABELS: Record<SortBy, string> = { name: "Name", modified: "Date modified", size: "Size", kind: "Kind" };
@@ -123,10 +150,26 @@ function sortItems(items: Item[], by: SortBy, desc: boolean): Item[] {
 /** "Dementa Cloud › Documents › Homework" for a folder path. */
 const locationText = (folder: string) => [ROOT_NAME, ...(folder ? folder.split("/") : [])].join(" › ");
 
-export function FilesApp({ request }: { request?: FilesRequest | null }) {
+export function FilesApp({
+  request,
+  onOpenDocument,
+  picker,
+}: {
+  request?: FilesRequest | null;
+  /** Opens a document (.html) in Docs instead of previewing it. */
+  onOpenDocument?: (path: string) => void;
+  /** Shows Files as another app's Open or Save window. */
+  picker?: FilePicker;
+}) {
   const [location, setLocation] = useState<Location>(() =>
-    request ? { kind: "folder", path: parentPath(request.path) } : { kind: "folder", path: "" },
+    picker
+      ? { kind: "folder", path: picker.folder }
+      : request
+        ? { kind: "folder", path: parentPath(request.path) }
+        : { kind: "folder", path: "" },
   );
+  const [saveName, setSaveName] = useState(picker?.name ?? "");
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const [history, setHistory] = useState<{ back: Location[]; forward: Location[] }>({ back: [], forward: [] });
   const [listing, setListing] = useState<FolderListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,7 +187,7 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
   const [confirmDelete, setConfirmDelete] = useState<Item | null>(null);
   const [preview, setPreview] = useState<CloudFile | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const picker = useRef<HTMLInputElement>(null);
+  const uploadInput = useRef<HTMLInputElement>(null);
   const root = useRef<HTMLDivElement>(null);
 
   const folderPath = location.kind === "folder" ? location.path : null;
@@ -230,7 +273,9 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
         [
           ...listing.folders.map((f) => ({ kind: "folder" as const, ...f })),
           ...listing.files.map((f) => ({ kind: "file" as const, ...f })),
-        ].filter((i) => i.name.toLowerCase().includes(query.trim().toLowerCase())),
+        ]
+          .filter((i) => i.name.toLowerCase().includes(query.trim().toLowerCase()))
+          .filter((i) => !picker || i.kind === "folder" || picker.accept.test(i.name)),
         sort.by,
         sort.desc,
       )
@@ -238,8 +283,34 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
   const selectedItem = items.find((i) => i.path === selected) ?? null;
   const takenNames = new Set(items.map((i) => i.name));
 
+  // ---- Open / Save window ----
+
+  const pickName = picker?.mode === "save" ? saveFileName(saveName, picker.extension ?? "") : "";
+  const replacing = Boolean(listing?.files.some((f) => f.name.toLowerCase() === pickName.toLowerCase()));
+  const canPick =
+    picker?.mode === "open" ? selectedItem?.kind === "file" : folderPath !== null && Boolean(saveName.trim()) && !error;
+
+  useEffect(() => setConfirmReplace(false), [saveName, location]);
+
+  function select(item: Item) {
+    setSelected(item.path);
+    // Clicking a document while saving offers to save over it, like other operating systems.
+    if (picker?.mode === "save" && item.kind === "file") setSaveName(item.name.replace(/\.[^.]+$/, ""));
+  }
+
+  function pick(e?: { preventDefault: () => void }) {
+    e?.preventDefault();
+    if (!picker || !canPick) return;
+    if (picker.mode === "open") picker.onPick(selectedItem!.path);
+    else if (replacing && !confirmReplace) setConfirmReplace(true);
+    else picker.onPick(joinPath(folderPath!, pickName));
+  }
+
   function open(item: Item) {
     if (item.kind === "folder") go({ kind: "folder", path: item.path });
+    else if (picker?.mode === "open") picker.onPick(item.path);
+    else if (picker) select(item);
+    else if (onOpenDocument && /\.(docx|html?)$/i.test(item.name)) onOpenDocument(item.path);
     else setPreview(item);
   }
 
@@ -296,8 +367,10 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
     else if (e.key === "F2" && canChange(selectedItem)) setRenaming(selectedItem!.path);
     else if (e.key === "Delete" && canChange(selectedItem)) setConfirmDelete(selectedItem);
     else if (e.key === "Backspace" && folderPath) go({ kind: "folder", path: parentPath(folderPath) });
-    else if (e.key === "Escape") setSelected(null);
-    else return;
+    else if (e.key === "Escape") {
+      if (picker && !selected) picker.onCancel();
+      else setSelected(null);
+    } else return;
     e.preventDefault();
   }
 
@@ -401,7 +474,7 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
           { label: "Refresh", icon: RefreshCw, onSelect: refresh },
           "divider",
           { label: "New Folder", icon: FolderPlus, disabled: folderPath === null, onSelect: newFolder },
-          { label: "Upload Files…", icon: Upload, disabled: folderPath === null, onSelect: () => picker.current?.click() },
+          { label: "Upload Files…", icon: Upload, disabled: folderPath === null, onSelect: () => uploadInput.current?.click() },
           ...(folderPath !== null
             ? [
                 "divider" as const,
@@ -498,7 +571,7 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
               <ToolButton label="New folder" disabled={folderPath === null} onClick={newFolder}>
                 <FolderPlus size={18} />
               </ToolButton>
-              <ToolButton label="Upload" disabled={folderPath === null} onClick={() => picker.current?.click()}>
+              <ToolButton label="Upload" disabled={folderPath === null} onClick={() => uploadInput.current?.click()}>
                 <Upload size={18} />
               </ToolButton>
               <ToolButton label="Delete" disabled={!canChange(selectedItem)} onClick={() => selectedItem && setConfirmDelete(selectedItem)}>
@@ -526,7 +599,7 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
             </a>
           )}
           <input
-            ref={picker}
+            ref={uploadInput}
             type="file"
             multiple
             hidden
@@ -578,7 +651,7 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
                     selected={selected === item.path}
                     renaming={renaming === item.path}
                     dropping={dropTarget === item.path}
-                    onSelect={() => setSelected(item.path)}
+                    onSelect={() => select(item)}
                     onOpen={() => open(item)}
                     onRename={(name) => rename(item, name)}
                     onCancelRename={() => setRenaming(null)}
@@ -606,7 +679,7 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
                       selected={selected === item.path}
                       renaming={renaming === item.path}
                       dropping={dropTarget === item.path}
-                      onSelect={() => setSelected(item.path)}
+                      onSelect={() => select(item)}
                       onOpen={() => open(item)}
                       onRename={(name) => rename(item, name)}
                       onCancelRename={() => setRenaming(null)}
@@ -644,6 +717,65 @@ export function FilesApp({ request }: { request?: FilesRequest | null }) {
             <RefreshCw size={12} />
           </button>
         </div>
+
+        {/* Open / Save bar */}
+        {picker && (
+          <form onSubmit={pick} className="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 px-3 py-2.5 text-sm">
+            {picker.mode === "save" ? (
+              <label className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="shrink-0 font-medium">Name</span>
+                <span className="flex min-w-0 flex-1 items-center rounded-md border border-slate-300 bg-surface px-3 py-1.5 focus-within:border-blue-500">
+                  <input
+                    autoFocus
+                    value={saveName}
+                    onChange={(e) => setSaveName(e.target.value)}
+                    placeholder="My document"
+                    aria-label="File name"
+                    className="min-w-0 flex-1 bg-transparent outline-none select-text"
+                  />
+                  {picker.extension && <span className="text-slate-400">{picker.extension}</span>}
+                </span>
+              </label>
+            ) : (
+              <>
+                {picker.fromComputer && (
+                  <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-blue-700 hover:bg-blue-50">
+                    <Monitor size={15} /> From this computer…
+                    <input
+                      type="file"
+                      hidden
+                      accept={picker.fromComputer.accept}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) picker.fromComputer!.onFile(file);
+                      }}
+                    />
+                  </label>
+                )}
+                <span className="min-w-0 flex-1 truncate text-slate-600">
+                  {selectedItem?.kind === "file" ? selectedItem.name : "Choose a document to open."}
+                </span>
+              </>
+            )}
+            <span className="flex gap-2">
+              <button type="button" onClick={picker.onCancel} className="rounded-lg px-4 py-1.5 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!canPick}
+                className="rounded-lg bg-blue-600 px-4 py-1.5 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {picker.mode === "open" ? "Open" : confirmReplace ? "Replace" : "Save"}
+              </button>
+            </span>
+            {picker.mode === "save" && folderPath === null && (
+              <p className="w-full text-xs text-slate-500">Choose a folder to save in.</p>
+            )}
+            {confirmReplace && <p className="w-full text-xs text-amber-700">“{pickName}” is already here. Save again to replace it.</p>}
+          </form>
+        )}
       </div>
 
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}

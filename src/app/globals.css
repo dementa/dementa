@@ -221,3 +221,296 @@ body {
     opacity: 0;
   }
 }
+
+/* Docs: the document's text. Tailwind resets headings and lists, so they're styled here. */
+.docs-page .ProseMirror {
+  min-height: 60vh;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.docs-page .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.docs-page p {
+  margin: 0 0 0.6em;
+}
+
+.docs-page h1 {
+  margin: 0.8em 0 0.3em;
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.docs-page h2 {
+  margin: 0.8em 0 0.3em;
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.docs-page h3 {
+  margin: 0.8em 0 0.3em;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.docs-page ul,
+.docs-page ol {
+  margin: 0 0 0.6em;
+  padding-left: 1.6em;
+}
+
+.docs-page ul {
+  list-style: disc;
+}
+
+.docs-page ol {
+  list-style: decimal;
+}
+
+.docs-page li > p {
+  margin: 0;
+}
+
+.docs-page blockquote {
+  margin: 0 0 0.6em;
+  padding-left: 1em;
+  border-left: 4px solid var(--color-slate-300, #cbd5e1);
+  color: var(--color-slate-600, #475569);
+}
+
+.docs-page hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 2px solid var(--color-slate-300, #cbd5e1);
+}
+
+.docs-page code {
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--color-slate-100, #f1f5f9);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.docs-page pre {
+  margin: 0 0 0.6em;
+  padding: 0.8em 1em;
+  border-radius: 6px;
+  background: var(--color-slate-100, #f1f5f9);
+}
+
+.docs-page pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Highlighter yellow stays readable in dark mode too. */
+.docs-page mark {
+  border-radius: 2px;
+  background: #fde047;
+  color: #0f172a;
+}
+
+.docs-page p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--color-slate-400, #94a3b8);
+  pointer-events: none;
+}
+
+.docs-page a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: text;
+}
+
+.docs-page img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.docs-page img.ProseMirror-selectednode {
+  outline: 3px solid #3b82f6;
+}
+
+/* Pictures in the editor (PictureView): a frame with resize handles when selected */
+.docs-picture {
+  line-height: 0;
+}
+
+.docs-picture-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.docs-picture-frame > img {
+  display: block;
+}
+
+.docs-picture-frame.is-selected {
+  outline: 1px solid #3b82f6;
+}
+
+/* In front of the text: takes no room, and is dragged anywhere from where it's anchored */
+.docs-picture-front {
+  height: 0;
+}
+
+.docs-picture-front > .docs-picture-frame {
+  position: absolute;
+  z-index: 5;
+  max-width: none;
+  cursor: move;
+  touch-action: none;
+}
+
+.docs-picture-front img {
+  max-width: none;
+}
+
+.docs-handle {
+  position: absolute;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border: 1px solid #3b82f6;
+  border-radius: 9999px;
+  background: #fff;
+  touch-action: none;
+}
+
+.docs-handle-nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.docs-handle-n { left: calc(50% - 5px); top: -5px; cursor: ns-resize; }
+.docs-handle-ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.docs-handle-e { right: -5px; top: calc(50% - 5px); cursor: ew-resize; }
+.docs-handle-se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+.docs-handle-s { left: calc(50% - 5px); bottom: -5px; cursor: ns-resize; }
+.docs-handle-sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.docs-handle-w { left: -5px; top: calc(50% - 5px); cursor: ew-resize; }
+
+/* More Colours… */
+.docs-colour-picker.react-colorful {
+  width: 100%;
+  height: 160px;
+}
+
+/* Tables (with drag handles on column edges to resize them) */
+.docs-page .tableWrapper {
+  margin: 0 0 0.8em;
+  overflow-x: auto;
+}
+
+.docs-page table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.docs-page td,
+.docs-page th {
+  position: relative;
+  min-width: 2em;
+  padding: 4px 8px;
+  border: 1px solid var(--color-slate-300, #cbd5e1);
+  vertical-align: top;
+}
+
+.docs-page th {
+  background: var(--color-slate-100, #f1f5f9);
+  font-weight: 600;
+  text-align: left;
+}
+
+.docs-page td > p,
+.docs-page th > p {
+  margin: 0;
+}
+
+.docs-page .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 130, 246, 0.18);
+  pointer-events: none;
+}
+
+.docs-page .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: #3b82f6;
+  pointer-events: none;
+}
+
+.docs-page .resize-cursor {
+  cursor: col-resize;
+}
+
+/* Home › Show paragraph marks */
+.docs-page .ProseMirror.show-marks :is(p, h1, h2, h3)::after {
+  content: "¶";
+  margin-left: 2px;
+  color: var(--color-slate-400, #94a3b8);
+  font-weight: 400;
+}
+
+/* Home › Format Painter: waiting for the text to brush the formatting onto */
+.docs-page .ProseMirror.format-painter {
+  cursor: copy;
+}
+
+/* Home › Find */
+.docs-page .search-match {
+  border-radius: 2px;
+  background: #fef08a;
+  color: #0f172a;
+}
+
+.docs-page .search-current {
+  border-radius: 2px;
+  background: #fb923c;
+  color: #0f172a;
+}
+
+/* Insert › Page Break: Docs shows one long page, so a break is drawn as a labelled line */
+.docs-page [data-page-break] {
+  position: relative;
+  margin: 1.25em 0;
+  border-top: 1px dashed var(--color-slate-400, #94a3b8);
+  cursor: default;
+}
+
+.docs-page [data-page-break]::after {
+  content: "Page Break";
+  position: absolute;
+  top: -0.7em;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 0.5em;
+  background: var(--color-surface, #fff);
+  color: var(--color-slate-500, #64748b);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.docs-page [data-page-break].ProseMirror-selectednode {
+  border-top-color: #2563eb;
+}
+
+/* Insert › Bookmark: hidden, like Word, unless paragraph marks are showing */
+.docs-page .ProseMirror.show-marks [data-bookmark]::before {
+  content: "⌶";
+  color: var(--color-slate-400, #94a3b8);
+  font-weight: 400;
+}
