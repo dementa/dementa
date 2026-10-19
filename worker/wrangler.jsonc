@@ -5,6 +5,17 @@
   "name": "dementa-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  // Better Auth uses Node's AsyncLocalStorage.
+  "compatibility_flags": ["nodejs_compat"],
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "dementa-os" }],
+  // Accounts. Make the database with `npx wrangler d1 create dementa-accounts` and paste its id here.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dementa-accounts",
+      "database_id": "REPLACE-WITH-THE-ID-FROM-wrangler-d1-create",
+      "migrations_dir": "migrations"
+    }
+  ],
   "observability": { "enabled": true }
 }

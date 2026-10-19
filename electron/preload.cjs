@@ -10,4 +10,7 @@ contextBridge.exposeInMainWorld("dementa", {
     ipcRenderer.on("dementa:navigation-blocked", listener);
     return () => ipcRenderer.removeListener("dementa:navigation-blocked", listener);
   },
+  setCloudSignIn(signIn) {
+    ipcRenderer.send("dementa:cloud-sign-in", signIn);
+  },
 });

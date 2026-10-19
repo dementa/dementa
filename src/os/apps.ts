@@ -63,7 +63,8 @@ export function getApp(id: AppId): AppDef {
 
 export type OSStyle = "windows" | "mac";
 
-export type PowerAction = "shutdown" | "restart";
+/** "signout" goes back to the sign-in screen (or to it, for someone using Dementa without an account). */
+export type PowerAction = "shutdown" | "restart" | "signout";
 
 /** Light, dark, or "auto" to follow the computer's own setting. */
 export type Theme = "light" | "dark" | "auto";
