@@ -11,7 +11,7 @@
 //
 // Exit shortcut: Ctrl+Shift+Alt+Q (on a Mac: Control+Shift+Option+Q)
 
-const { app, BrowserWindow, net, powerMonitor, protocol, session } = require("electron");
+const { app, BrowserWindow, ipcMain, net, powerMonitor, protocol, session } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const hosts = require("../src/os/browser/hosts.json");
@@ -114,6 +114,30 @@ function guardDementa(contents) {
   watchExitShortcut(contents);
 }
 
+/**
+ * Dementa OS's own requests to the Dementa cloud carry the signed-in account's token, so pictures,
+ * downloads and file previews work too (the desktop app can't use the cloud's sign-in cookie).
+ */
+function setUpCloudSignIn() {
+  let signIn = null;
+  ipcMain.on("dementa:cloud-sign-in", (event, value) => {
+    // Only Dementa OS itself may sign in, never a website in the browser app.
+    if (event.senderFrame?.url && !event.senderFrame.url.startsWith(`${APP_ORIGIN}/`)) return;
+    try {
+      signIn = value && typeof value.token === "string" ? { origin: new URL(value.cloud).origin, token: value.token } : null;
+    } catch {
+      signIn = null;
+    }
+  });
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = details.requestHeaders;
+    if (signIn && details.url.startsWith(`${signIn.origin}/api/`) && !headers.Authorization) {
+      headers.Authorization = `Bearer ${signIn.token}`;
+    }
+    callback({ requestHeaders: headers });
+  });
+}
+
 function setUpBrowserSession() {
   const browser = session.fromPartition(BROWSER_PARTITION);
 
@@ -172,6 +196,7 @@ app.on("second-instance", () => {
 app.whenReady().then(() => {
   protocol.handle("app", serveApp);
   setUpBrowserSession();
+  setUpCloudSignIn();
 
   // Start Dementa OS automatically when the user signs in to the computer.
   if (app.isPackaged && ["win32", "darwin"].includes(process.platform)) app.setLoginItemSettings({ openAtLogin: true });

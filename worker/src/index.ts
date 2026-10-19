@@ -1,13 +1,15 @@
 // Dementa OS cloud API (Cloudflare Worker).
 //
-// Stores the Files app's folders and files in an R2 bucket. There is no sign-in yet: everyone
-// using Dementa OS shares one storage space, and anyone who can reach this API can read, add or
-// delete files. Add access control before storing anything private.
+// Stores the Files app's folders and files in an R2 bucket, separately for each account: people
+// must be signed in (/api/auth/*, see auth.ts), and only see their own files.
 //
-// Layout in R2: every path lives under "files/". A folder is kept as an empty marker object whose
-// key ends in "/" (so empty folders survive), e.g. files/Documents/ and files/Documents/notes.txt.
+// Layout in R2: each account's paths live under "users/<account id>/files/". A folder is kept as an
+// empty marker object whose key ends in "/" (so empty folders survive), e.g.
+// users/abc/files/Documents/ and users/abc/files/Documents/notes.txt. The routes below see only
+// "files/…": scopedBucket adds the account's part.
 
-import type { Bucket, Env } from "./types.ts";
+import { appOrigins, authFor } from "./auth.ts";
+import { scopedBucket, type Bucket, type Env } from "./types.ts";
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const ROOT = "files/";
@@ -23,15 +25,22 @@ class HttpError extends Error {
   }
 }
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Expose-Headers": "Content-Type, Content-Length",
-};
+/** Lets Dementa OS (and only Dementa OS) call the cloud from its own address, signed in. */
+function corsFor(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get("Origin");
+  if (!origin || !appOrigins(env).includes(origin)) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Expose-Headers": "Content-Type, Content-Length, set-auth-token",
+    Vary: "Origin",
+  };
+}
 
 const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
 
 const TYPES: Record<string, string> = {
   txt: "text/plain", md: "text/markdown", csv: "text/csv", json: "application/json", html: "text/html",
@@ -171,9 +180,16 @@ async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const { pathname } = url;
   const method = request.method;
-  const bucket = env.FILES;
 
   if (method === "GET" && pathname === "/api/status") return json({ ok: true, systemFolders: SYSTEM_FOLDERS });
+
+  // Signing up, in and out, and who's signed in: Better Auth.
+  if (pathname.startsWith("/api/auth/")) return authFor(env).handler(request);
+
+  // Everything else is someone's files, so they must be signed in.
+  const session = await authFor(env).api.getSession({ headers: request.headers });
+  if (!session) throw new HttpError(401, "Please sign in to use your files.");
+  const bucket = scopedBucket(env.FILES, `users/${session.user.id}/`);
 
   // List a folder: GET /api/list?path=Documents/Homework
   if (method === "GET" && pathname === "/api/list") {
@@ -262,7 +278,6 @@ async function route(request: Request, env: Env): Promise<Response> {
       const disposition = url.searchParams.has("download") ? "attachment" : "inline";
       return new Response(object.body, {
         headers: {
-          ...CORS,
           "Content-Type": object.httpMetadata?.contentType ?? guessType(name),
           "Content-Length": String(object.size),
           "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(name)}`,
@@ -291,16 +306,25 @@ async function route(request: Request, env: Env): Promise<Response> {
   throw new HttpError(404, "Not found.");
 }
 
+async function respond(request: Request, env: Env): Promise<Response> {
+  try {
+    return await route(request, env);
+  } catch (error) {
+    if (error instanceof HttpError) return json({ error: error.message }, error.status);
+    console.error(error);
+    return json({ error: "Something went wrong. Please try again." }, 500);
+  }
+}
+
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-    try {
-      return await route(request, env);
-    } catch (error) {
-      if (error instanceof HttpError) return json({ error: error.message }, error.status);
-      console.error(error);
-      return json({ error: "Something went wrong. Please try again." }, 500);
-    }
+    const cors = corsFor(request, env);
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    const response = await respond(request, env);
+    // Responses from Better Auth can't always be changed, so the CORS headers go on a copy.
+    const headers = new Headers(response.headers);
+    for (const [name, value] of Object.entries(cors)) headers.set(name, value);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
 
