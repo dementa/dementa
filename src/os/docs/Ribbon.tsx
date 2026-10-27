@@ -2,20 +2,29 @@
 
 // The ribbon: Word's row of tabs (File … Help) and the tools of the open tab.
 
-import type { Editor } from "@tiptap/react";
+import type { Editor, JSONContent } from "@tiptap/react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PageLayout } from "./layout";
 import { ChartTab, selectedChart } from "./ribbon/ChartForm";
 import { HomeTab } from "./ribbon/HomeTab";
 import { InsertTab } from "./ribbon/InsertTab";
-import { ComingSoon, LayoutTab, TableTab } from "./ribbon/OtherTabs";
+import { LayoutTab } from "./ribbon/LayoutTab";
+import { DesignTab } from "./ribbon/DesignTab";
+import { HeaderFooterTab, PageNumberMenu, PartMenu, type HfControls } from "./ribbon/HeaderFooterTab";
+import { HelpTab } from "./ribbon/HelpTab";
+import { TableTab } from "./ribbon/OtherTabs";
+import { MailingsTab } from "./ribbon/MailingsTab";
+import { ReferencesTab } from "./ribbon/ReferencesTab";
+import { ReviewTab, type ReviewView } from "./ribbon/ReviewTab";
+import { ImmersiveTab, OutliningTab, ViewTab, type ViewControls } from "./ribbon/ViewTab";
 import { PictureTab } from "./ribbon/PictureTab";
-import { keepFocus } from "./ribbon/parts";
+import { ShapeTab } from "./ribbon/ShapeTab";
+import { Group, keepFocus } from "./ribbon/parts";
 
 type Tab = "home" | "insert" | "design" | "layout" | "references" | "mailings" | "review" | "view" | "help" | Contextual;
-/** Tabs that only show while a table, chart or picture is selected, like Word's coloured ones. */
-type Contextual = "table" | "chart" | "picture";
+/** Tabs that only show while a table, chart, picture or shape is selected, like Word's coloured ones. */
+type Contextual = "table" | "chart" | "picture" | "headerFooter" | "outlining" | "immersive";
 
 /** In Word's order. File isn't here: it opens the File screen instead of a set of tools. */
 const TABS: { id: Exclude<Tab, Contextual>; label: string }[] = [
@@ -35,6 +44,16 @@ export const RIBBON_BLUE = "#2b579a";
 
 interface Props {
   editor: Editor;
+  /** The document's name, for headers and footers. */
+  title: string;
+  headerFooter: HfControls;
+  /** Opens a footnote or endnote to type it. */
+  onNote: (id: string) => void;
+  /** Opens a document the Mailings tab made (merged letters, envelopes, labels). */
+  onGenerated: (content: JSONContent, layout: Partial<PageLayout>, title: string) => void;
+  /** How the Review tab's changes, comments and panes show (kept by the Docs window). */
+  review: ReviewView;
+  view: ViewControls;
   layout: PageLayout;
   onLayout: (patch: Partial<PageLayout>) => void;
   onError: (text: string) => void;
@@ -42,14 +61,33 @@ interface Props {
   onFind: (mode: "find" | "replace") => void;
 }
 
-export function Ribbon({ editor, layout, onLayout, onError, onFile, onFind }: Props) {
+export function Ribbon({ editor, title, headerFooter, layout, onLayout, onError, onFile, onFind, onNote, onGenerated, review, view }: Props) {
   const [tab, setTab] = useState<Tab>("home");
   const [collapsed, setCollapsed] = useState(false);
   const [showMarks, setShowMarks] = useState(false);
   const inTable = editor.isActive("table");
   const chart = selectedChart(editor);
   const picture = editor.isActive("image");
-  const shown = (tab === "table" && !inTable) || (tab === "chart" && !chart) || (tab === "picture" && !picture) ? "home" : tab;
+  const shape = picture && Boolean(editor.getAttributes("image").shape);
+  const editingHf = Boolean(headerFooter.editing);
+  // Editing a header or footer opens its tab, as in Word; leaving it goes back to Home.
+  const [lastHf, setLastHf] = useState(editingHf);
+  if (lastHf !== editingHf) {
+    setLastHf(editingHf);
+    setTab(editingHf ? "headerFooter" : "home");
+  }
+  // Outline view and Immersive Reader open their own tabs, as in Word.
+  const outlining = view.mode === "outline";
+  const [lastView, setLastView] = useState(`${outlining}${view.immersive}`);
+  if (lastView !== `${outlining}${view.immersive}`) {
+    setLastView(`${outlining}${view.immersive}`);
+    setTab(outlining ? "outlining" : view.immersive ? "immersive" : "view");
+  }
+  const shown =
+    (tab === "table" && !inTable) || (tab === "chart" && !chart) || (tab === "picture" && !picture) || (tab === "headerFooter" && !editingHf) || (tab === "outlining" && !outlining) || (tab === "immersive" && !view.immersive)
+      ? "home"
+      : tab;
+  const hfProps = { editor, title, layout, onLayout, hf: headerFooter };
 
   useEffect(() => {
     editor.view.dom.classList.toggle("show-marks", showMarks);
@@ -59,9 +97,12 @@ export function Ribbon({ editor, layout, onLayout, onError, onFile, onFind }: Pr
     ...TABS,
     ...(inTable ? [{ id: "table" as const, label: "Table" }] : []),
     ...(chart ? [{ id: "chart" as const, label: "Chart Design" }] : []),
-    ...(picture ? [{ id: "picture" as const, label: chart ? "Format" : "Picture Format" }] : []),
+    ...(picture ? [{ id: "picture" as const, label: shape ? "Shape Format" : chart ? "Format" : "Picture Format" }] : []),
+    ...(editingHf ? [{ id: "headerFooter" as const, label: "Header & Footer" }] : []),
+    ...(outlining ? [{ id: "outlining" as const, label: "Outlining" }] : []),
+    ...(view.immersive ? [{ id: "immersive" as const, label: "Immersive Reader" }] : []),
   ];
-  const contextual = (id: Tab) => id === "table" || id === "chart" || id === "picture";
+  const contextual = (id: Tab) => ["table", "chart", "picture", "headerFooter", "outlining", "immersive"].includes(id);
 
   const tabButton = (id: Tab, label: string) => {
     const selected = shown === id && !collapsed;
@@ -119,18 +160,42 @@ export function Ribbon({ editor, layout, onLayout, onError, onFile, onFind }: Pr
           {shown === "home" ? (
             <HomeTab editor={editor} onError={onError} onFind={onFind} showMarks={showMarks} onShowMarks={() => setShowMarks((s) => !s)} />
           ) : shown === "insert" ? (
-            <InsertTab editor={editor} onError={onError} />
+            <InsertTab editor={editor} onError={onError}>
+              <Group label="Header & Footer">
+                <PartMenu part="header" {...hfProps} />
+                <PartMenu part="footer" {...hfProps} />
+                <PageNumberMenu {...hfProps} />
+              </Group>
+            </InsertTab>
+          ) : shown === "headerFooter" ? (
+            <HeaderFooterTab {...hfProps} />
+          ) : shown === "design" ? (
+            <DesignTab layout={layout} onLayout={onLayout} />
+          ) : shown === "references" ? (
+            <ReferencesTab editor={editor} layout={layout} onLayout={onLayout} onNote={onNote} />
+          ) : shown === "mailings" ? (
+            <MailingsTab editor={editor} title={title} layout={layout} onLayout={onLayout} onGenerated={onGenerated} />
+          ) : shown === "review" ? (
+            <ReviewTab editor={editor} title={title} layout={layout} onLayout={onLayout} onGenerated={onGenerated} view={review} />
+          ) : shown === "view" ? (
+            <ViewTab v={view} />
+          ) : shown === "outlining" ? (
+            <OutliningTab editor={editor} onClose={() => view.onMode("print")} />
+          ) : shown === "immersive" ? (
+            <ImmersiveTab v={view} />
           ) : shown === "layout" ? (
-            <LayoutTab layout={layout} onLayout={onLayout} />
+            <LayoutTab editor={editor} layout={layout} onLayout={onLayout} />
           ) : shown === "table" ? (
             <TableTab editor={editor} />
           ) : shown === "chart" && chart ? (
             <ChartTab editor={editor} spec={chart} onError={onError} />
+          ) : shown === "picture" && shape ? (
+            <ShapeTab editor={editor} />
           ) : shown === "picture" && picture ? (
             <PictureTab editor={editor} />
-          ) : (
-            <ComingSoon name={TABS.find((t) => t.id === shown)!.label} />
-          )}
+          ) : shown === "help" ? (
+            <HelpTab title={title} view={review} />
+          ) : null}
           <button
             title="Collapse the ribbon"
             aria-label="Collapse the ribbon"

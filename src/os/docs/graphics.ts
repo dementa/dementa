@@ -1,9 +1,8 @@
-// Shapes and SmartArt for the Insert tab (charts are in charts.ts), drawn as SVG pictures so saved documents show
+// SmartArt for the Insert tab (shapes are in shapes.ts, charts in charts.ts), drawn as SVG pictures so saved documents show
 // them anywhere. Pictures can't run code, so the drawings are safe whatever text they hold.
 
-/** Word's default shape colours. */
+/** Word's first theme colour. */
 export const FILL = "#4472c4";
-const OUTLINE = "#2f528f";
 export const FONT = "font-family='Segoe UI, system-ui, sans-serif'";
 
 export const escapeXml = (text: string) =>
@@ -49,65 +48,6 @@ function label(lines: string[], x: number, y: number, size: number, colour = "#f
     .join("");
 }
 
-// ---- Shapes ----
-
-export type ShapeKind =
-  | "line"
-  | "arrowLine"
-  | "rectangle"
-  | "rounded"
-  | "oval"
-  | "triangle"
-  | "diamond"
-  | "pentagon"
-  | "hexagon"
-  | "star"
-  | "heart"
-  | "rightArrow"
-  | "leftArrow"
-  | "upArrow"
-  | "downArrow"
-  | "callout";
-
-export const SHAPE_GROUPS: { name: string; shapes: { kind: ShapeKind; name: string }[] }[] = [
-  {
-    name: "Lines",
-    shapes: [
-      { kind: "line", name: "Line" },
-      { kind: "arrowLine", name: "Arrow" },
-    ],
-  },
-  {
-    name: "Rectangles",
-    shapes: [
-      { kind: "rectangle", name: "Rectangle" },
-      { kind: "rounded", name: "Rounded rectangle" },
-    ],
-  },
-  {
-    name: "Basic shapes",
-    shapes: [
-      { kind: "oval", name: "Oval" },
-      { kind: "triangle", name: "Triangle" },
-      { kind: "diamond", name: "Diamond" },
-      { kind: "pentagon", name: "Pentagon" },
-      { kind: "hexagon", name: "Hexagon" },
-      { kind: "star", name: "Star" },
-      { kind: "heart", name: "Heart" },
-    ],
-  },
-  {
-    name: "Block arrows",
-    shapes: [
-      { kind: "rightArrow", name: "Right arrow" },
-      { kind: "leftArrow", name: "Left arrow" },
-      { kind: "upArrow", name: "Up arrow" },
-      { kind: "downArrow", name: "Down arrow" },
-    ],
-  },
-  { name: "Callouts", shapes: [{ kind: "callout", name: "Speech bubble" }] },
-];
-
 const polygon = (points: [number, number][]) => `<polygon points="${points.map((p) => p.join(",")).join(" ")}"/>`;
 
 /** Points evenly around a circle, starting at the top. */
@@ -116,34 +56,6 @@ const around = (n: number, cx: number, cy: number, r: number, turn = 0) =>
     const a = ((i + turn) / n) * 2 * Math.PI - Math.PI / 2;
     return [+(cx + r * Math.cos(a)).toFixed(1), +(cy + r * Math.sin(a)).toFixed(1)];
   });
-
-/** A shape stretches to whatever size it's dragged to, unlike pictures, which keep their proportions inside. */
-export const shapeSvg = (kind: ShapeKind) => drawShape(kind).replace("<svg ", '<svg preserveAspectRatio="none" ');
-
-function drawShape(kind: ShapeKind) {
-  const style = `fill="${FILL}" stroke="${OUTLINE}" stroke-width="2" stroke-linejoin="round"`;
-  if (kind === "line" || kind === "arrowLine") {
-    const head = kind === "arrowLine" ? `<polygon points="150,30 134,22 134,38" fill="${FILL}"/>` : "";
-    return svg(160, 60, `<line x1="8" y1="30" x2="${kind === "arrowLine" ? 138 : 152}" y2="30" stroke="${FILL}" stroke-width="3"/>${head}`);
-  }
-  const body: Record<Exclude<ShapeKind, "line" | "arrowLine">, string> = {
-    rectangle: `<rect x="2" y="2" width="156" height="96"/>`,
-    rounded: `<rect x="2" y="2" width="156" height="96" rx="16"/>`,
-    oval: `<ellipse cx="80" cy="50" rx="78" ry="48"/>`,
-    triangle: polygon([[80, 2], [158, 98], [2, 98]]),
-    diamond: polygon([[80, 2], [158, 50], [80, 98], [2, 50]]),
-    pentagon: polygon(around(5, 80, 54, 50)),
-    hexagon: polygon([[40, 2], [120, 2], [158, 50], [120, 98], [40, 98], [2, 50]]),
-    star: polygon(around(10, 80, 54, 50).map((p, i): [number, number] => (i % 2 ? [80 + (p[0] - 80) * 0.42, 54 + (p[1] - 54) * 0.42] : p))),
-    heart: `<path d="M80 96 C20 60 2 38 22 16 C40 -2 70 6 80 26 C90 6 120 -2 138 16 C158 38 140 60 80 96 Z"/>`,
-    rightArrow: polygon([[2, 30], [100, 30], [100, 4], [158, 50], [100, 96], [100, 70], [2, 70]]),
-    leftArrow: polygon([[158, 30], [60, 30], [60, 4], [2, 50], [60, 96], [60, 70], [158, 70]]),
-    upArrow: polygon([[60, 98], [60, 44], [34, 44], [80, 2], [126, 44], [100, 44], [100, 98]]),
-    downArrow: polygon([[60, 2], [60, 56], [34, 56], [80, 98], [126, 56], [100, 56], [100, 2]]),
-    callout: `<path d="M14 2 H146 Q158 2 158 14 V62 Q158 74 146 74 H62 L34 98 L40 74 H14 Q2 74 2 62 V14 Q2 2 14 2 Z"/>`,
-  };
-  return svg(160, 100, `<g ${style}>${body[kind]}</g>`);
-}
 
 // ---- SmartArt ----
 

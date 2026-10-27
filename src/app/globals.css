@@ -259,6 +259,10 @@ body {
   font-weight: 600;
 }
 
+.docs-page p[data-style="title"] {
+  line-height: 1.15;
+}
+
 .docs-page ul,
 .docs-page ol {
   margin: 0 0 0.6em;
@@ -377,6 +381,52 @@ body {
   max-width: none;
 }
 
+/* Shapes: drawn at their size, with their text on top */
+.docs-shape {
+  position: relative;
+  display: block;
+}
+
+.docs-shape-drawing,
+.docs-shape-drawing > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.docs-shape-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.docs-shape-text > .is-editing {
+  min-height: 1.2em;
+  outline: none;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* A line shows only the handles at its ends, not a box */
+.docs-picture-frame.is-line.is-selected {
+  outline: none;
+}
+
+/* Insert → Shapes: drawing a shape on the page */
+.docs-sheet[data-drawing],
+.docs-sheet[data-drawing] * {
+  cursor: crosshair !important;
+}
+
 .docs-handle {
   position: absolute;
   z-index: 1;
@@ -404,9 +454,10 @@ body {
 }
 
 /* Tables (with drag handles on column edges to resize them) */
+/* Like Word, a table wider than the text runs into the margin instead of being cut off. */
 .docs-page .tableWrapper {
   margin: 0 0 0.8em;
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .docs-page table {
@@ -415,19 +466,68 @@ body {
   table-layout: fixed;
 }
 
+/* Word's plain table ("Table Grid"): thin black lines, a little room on the left and right of
+   each cell, and nothing else; a header row looks like any other (it only repeats on each page). */
 .docs-page td,
 .docs-page th {
   position: relative;
   min-width: 2em;
-  padding: 4px 8px;
-  border: 1px solid var(--color-slate-300, #cbd5e1);
+  padding: 0 7px;
+  border: 1px solid #000;
   vertical-align: top;
 }
 
 .docs-page th {
-  background: var(--color-slate-100, #f1f5f9);
-  font-weight: 600;
-  text-align: left;
+  font-weight: inherit;
+  text-align: inherit;
+}
+
+/* AutoFit to Contents: as wide as the text in it needs */
+.docs-page table[data-autofit="contents"] {
+  width: auto;
+  table-layout: auto;
+}
+
+/* Dragging a row's bottom border, the corner of a table, or the table to a new place */
+.docs-page .ProseMirror.docs-row-resize,
+.docs-page .ProseMirror.docs-row-resize * {
+  cursor: row-resize;
+}
+
+.docs-page .ProseMirror.docs-col-resize,
+.docs-page .ProseMirror.docs-col-resize * {
+  cursor: col-resize;
+}
+
+.docs-resize-guide-v {
+  position: fixed;
+  z-index: 9000;
+  width: 0;
+  border-left: 1px dashed #000;
+  pointer-events: none;
+}
+
+.docs-resize-guide {
+  position: fixed;
+  z-index: 9000;
+  height: 0;
+  border-top: 1px dashed #000;
+  pointer-events: none;
+}
+
+.docs-resize-box {
+  position: fixed;
+  z-index: 9000;
+  border: 1px dashed #000;
+  pointer-events: none;
+}
+
+.docs-drop-guide {
+  position: fixed;
+  z-index: 9000;
+  height: 0;
+  border-top: 3px solid #2b579a;
+  pointer-events: none;
 }
 
 .docs-page td > p,
@@ -483,15 +583,17 @@ body {
   color: #0f172a;
 }
 
-/* Insert › Page Break: Docs shows one long page, so a break is drawn as a labelled line */
-.docs-page [data-page-break] {
+/* Insert › Page Break: Docs shows one long page, so a break is drawn as a labelled line (column breaks too) */
+.docs-page [data-page-break],
+.docs-page [data-column-break] {
   position: relative;
   margin: 1.25em 0;
   border-top: 1px dashed var(--color-slate-400, #94a3b8);
   cursor: default;
 }
 
-.docs-page [data-page-break]::after {
+.docs-page [data-page-break]::after,
+.docs-page [data-column-break]::after {
   content: "Page Break";
   position: absolute;
   top: -0.7em;
@@ -504,8 +606,338 @@ body {
   line-height: 1.4;
 }
 
-.docs-page [data-page-break].ProseMirror-selectednode {
+.docs-page [data-column-break]::after {
+  content: "Column Break";
+}
+
+.docs-page [data-page-break].ProseMirror-selectednode,
+.docs-page [data-column-break].ProseMirror-selectednode {
   border-top-color: #2563eb;
+}
+
+/* Real pages (pagination.ts): the gap where a page fills up, and its sheets of paper */
+.docs-page-gap {
+  display: block;
+  pointer-events: none;
+}
+
+.docs-sheet.docs-measuring .docs-page-gap {
+  display: none;
+}
+
+.docs-page-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: -2;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05);
+  pointer-events: none;
+}
+
+/* A table row moved onto the next page: its text and its sides start there */
+.docs-page td.docs-gap-cell,
+.docs-page th.docs-gap-cell {
+  padding-top: calc(4px + var(--docs-gap));
+  /* Word files set each cell's borders on the cell itself */
+  border-right-color: transparent !important;
+  border-left-color: transparent !important;
+  /* Nothing of the cell shows in the gap: its shading starts on the new page */
+  mask-image: linear-gradient(transparent var(--docs-gap), #000 var(--docs-gap));
+}
+
+.docs-page .docs-gap-cell::before {
+  content: "";
+  position: absolute;
+  top: var(--docs-gap);
+  right: -1px;
+  bottom: 0;
+  left: -1px;
+  border: 1px solid var(--color-slate-300, #cbd5e1);
+  border-bottom: none;
+  pointer-events: none;
+}
+
+.docs-sheet.docs-measuring .docs-gap-cell {
+  --docs-gap: 0px;
+}
+
+/* With real pages the break shows as the next sheet, so its marker is hidden, like Word, unless
+   paragraph marks are showing or it's selected */
+.docs-sheet[data-paged] .ProseMirror:not(.show-marks) [data-page-break]:not(.ProseMirror-selectednode) {
+  margin: 0;
+  border-top-color: transparent;
+}
+
+.docs-sheet[data-paged] .ProseMirror:not(.show-marks) [data-page-break]:not(.ProseMirror-selectednode)::after {
+  content: none;
+}
+
+/* Page numbers in headers and footers: grey like Word's fields; "#" while editing, where there's no page yet */
+.docs-page [data-field] {
+  border-radius: 2px;
+  background: rgb(0 0 0 / 0.06);
+}
+
+.docs-page .ProseMirror [data-field]:empty::after {
+  content: "#";
+}
+
+/* Headers and footers on each page, and editing them (headerFooter.tsx) */
+.docs-page .docs-hf.ProseMirror {
+  min-height: 0;
+}
+
+.docs-hf p {
+  margin: 0;
+}
+
+/* While a header or footer is being edited, the body is dimmed, as in Word */
+.docs-sheet[data-hf-editing] > div > .ProseMirror:not(.docs-hf) {
+  opacity: 0.45;
+}
+
+/* References: footnote and endnote marks, and the notes at the bottom of the page (notes.tsx) */
+.docs-page sup.docs-note-ref {
+  cursor: pointer;
+  color: #2b579a;
+}
+
+.docs-notes {
+  font-size: 13.33px; /* 10pt, Word's footnote text */
+  line-height: 1.25;
+}
+
+.docs-notes .docs-note {
+  margin: 0 0 2px;
+  cursor: text;
+}
+
+.docs-note-sep {
+  position: relative;
+  height: 18px; /* NOTE_SEPARATOR in pagination.ts */
+}
+
+.docs-note-sep::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 2in;
+  border-top: 1px solid currentColor;
+  opacity: 0.6;
+}
+
+/* Citations, caption numbers and index marks */
+.docs-page .docs-citation,
+.docs-page .docs-caption-number {
+  border-radius: 2px;
+  background: rgb(0 0 0 / 0.04);
+}
+
+.docs-page p[data-style="caption"] {
+  margin-bottom: 0.8em;
+  color: #44546a;
+  font-size: 0.75em;
+  font-style: italic;
+}
+
+.docs-page .docs-index-mark {
+  display: none;
+}
+
+.docs-page .ProseMirror.show-marks .docs-index-mark {
+  display: inline;
+}
+
+.docs-page .ProseMirror.show-marks .docs-index-mark::before {
+  content: '{XE "' attr(data-index) '"}';
+  color: var(--color-slate-400, #94a3b8);
+  font-size: 0.85em;
+}
+
+/* Table of contents, table of figures, bibliography and index (refNodes.ts) */
+.docs-page .docs-ref-block {
+  margin: 0 0 0.8em;
+  border-radius: 2px;
+  cursor: default;
+}
+
+.docs-page .docs-ref-block.ProseMirror-selectednode {
+  outline: 2px solid #93c5fd;
+}
+
+.docs-page .docs-ref-title {
+  margin: 0 0 0.4em;
+  color: #2f5496;
+  font-size: 1.33em;
+}
+
+.docs-page .docs-toc-entry {
+  display: flex;
+  align-items: baseline;
+  margin: 0 0 0.25em;
+  cursor: pointer;
+}
+
+.docs-page .docs-toc-entry:hover .docs-toc-text {
+  text-decoration: underline;
+}
+
+.docs-page .docs-toc-dots {
+  flex: 1;
+  min-width: 1em;
+  margin: 0 0.3em;
+  border-bottom: 1.5px dotted currentColor;
+  opacity: 0.6;
+}
+
+.docs-page .docs-ref-empty {
+  color: var(--color-slate-500, #64748b);
+  font-style: italic;
+}
+
+.docs-page .docs-bib-entry {
+  margin: 0 0 0.5em;
+  padding-left: 0.5in;
+  text-indent: -0.5in;
+}
+
+.docs-page .docs-ref-index {
+  column-count: 2;
+  column-gap: 2em;
+}
+
+.docs-page .docs-ref-index .docs-ref-title {
+  column-span: all;
+}
+
+.docs-page .docs-index-entry {
+  margin: 0;
+}
+
+.docs-page .docs-index-sub {
+  padding-left: 1.5em;
+}
+
+/* Mailings: merge fields (mergeNodes.ts); grey with Highlight Merge Fields, as in Word */
+.docs-page .ProseMirror.show-merge-fields .docs-merge-field {
+  background: #d9d9d9;
+}
+
+/* While previewing, an address block shows on its lines */
+.docs-page .docs-merge-field.is-preview {
+  white-space: pre-line;
+}
+
+/* Review › Track Changes (review/track.ts): All Markup shows insertions underlined and deletions
+   struck through, in colour; Simple and No Markup show the text as it would be; Original, as it was */
+.docs-page .docs-ins {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.docs-page .docs-del {
+  color: #dc2626;
+  text-decoration: line-through;
+}
+
+.docs-page .ProseMirror.markup-simple .docs-del,
+.docs-page .ProseMirror.markup-none .docs-del,
+.docs-page .ProseMirror.markup-original .docs-ins {
+  display: none;
+}
+
+.docs-page .ProseMirror.markup-simple .docs-ins,
+.docs-page .ProseMirror.markup-none .docs-ins,
+.docs-page .ProseMirror.markup-original .docs-del {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Simple Markup: a red line in the margin beside changed paragraphs, as Word draws it */
+.docs-page .ProseMirror.markup-simple :is(p, h1, h2, h3, h4, h5, h6):has(.docs-ins, .docs-del) {
+  box-shadow: -14px 0 0 -12px #dc2626;
+}
+
+/* Review › Comments: the text a comment is about */
+.docs-page .docs-comment {
+  background: rgb(250 204 21 / 0.22);
+}
+
+/* View › Outline (view/outline.ts): ⊖ / ⊕ before headings (click to collapse or expand), a small
+   circle before body text */
+.docs-page .docs-ol {
+  position: relative;
+}
+
+.docs-page .docs-ol::before {
+  position: absolute;
+  top: 0;
+  left: -22px;
+  width: 16px;
+  color: var(--color-slate-500, #64748b);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: inherit;
+  text-align: center;
+}
+
+.docs-page .docs-ol-heading::before {
+  content: "▫";
+}
+
+.docs-page .docs-ol-open::before {
+  content: "⊖";
+  cursor: pointer;
+}
+
+.docs-page .docs-ol-collapsed::before {
+  content: "⊕";
+  cursor: pointer;
+}
+
+.docs-page .docs-ol-collapsed {
+  text-decoration: underline wavy var(--color-slate-300, #cbd5e1);
+}
+
+.docs-page .docs-ol-body::before {
+  content: "◦";
+}
+
+.docs-page .docs-ol-hidden {
+  display: none !important;
+}
+
+.docs-page .docs-ol-first-line {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+/* View › Gridlines */
+.docs-sheet.docs-gridlines .docs-page-sheet {
+  background-image: linear-gradient(to bottom, rgb(59 130 246 / 0.16) 1px, transparent 1px), linear-gradient(to right, rgb(59 130 246 / 0.16) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* View › Switch Modes: a dark page, its pictures kept as they are */
+.docs-sheet.docs-dark {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+.docs-sheet.docs-dark img,
+.docs-sheet.docs-dark .docs-shape-drawing,
+.docs-sheet.docs-dark > [aria-label="Comments"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Immersive Reader › Text Spacing */
+.docs-sheet.docs-spaced .ProseMirror {
+  letter-spacing: 0.06em;
+  word-spacing: 0.25em;
+  line-height: 2;
 }
 
 /* Insert › Bookmark: hidden, like Word, unless paragraph marks are showing */
@@ -513,4 +945,22 @@ body {
   content: "⌶";
   color: var(--color-slate-400, #94a3b8);
   font-weight: 400;
+}
+
+/* Checking as you type (review/proofing.ts): red for spelling, green for grammar, as in Word */
+.docs-page .docs-spell-error,
+.docs-page .docs-grammar-error {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.docs-page .docs-spell-error {
+  text-decoration-color: #e11d48;
+}
+
+.docs-page .docs-grammar-error {
+  text-decoration-color: #16a34a;
 }

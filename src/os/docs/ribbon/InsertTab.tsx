@@ -23,19 +23,21 @@ import {
   Table,
   Trash2,
 } from "lucide-react";
-import { useRef, type ChangeEvent } from "react";
-import { SHAPE_GROUPS, shapeSvg, svgUrl } from "../graphics";
+import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { drawShape } from "../drawShape";
 import { COVER_DESIGNS, hasCoverPage, insertBlankPage, insertCoverPage, removeCoverPage, type CoverDesign } from "../insertNodes";
 import { ChartForm } from "./ChartForm";
 import { BookmarkPanel, CrossReferencePanel, LinkForm, OnlinePictures, SmartArtForm, TablePicker, WikipediaPanel } from "./insertPanels";
 import { Big, Divider, Group, keepFocus, MenuButton, MenuItem, Stack } from "./parts";
+import { ShapeGallery } from "./ShapeTab";
 
 /** Pictures are kept inside the document, so they're limited to keep documents quick to save and open. */
 const MAX_PICTURE_BYTES = 5 * 1024 * 1024;
 /** Screenshots are shrunk to this width, which is plenty for a page. */
 const SCREENSHOT_WIDTH = 1600;
 
-export function InsertTab({ editor, onError }: { editor: Editor; onError: (text: string) => void }) {
+/** `children`: more groups at the end, like Header & Footer. */
+export function InsertTab({ editor, onError, children }: { editor: Editor; onError: (text: string) => void; children?: ReactNode }) {
   const run = () => editor.chain().focus();
   const picture = useRef<HTMLInputElement>(null);
 
@@ -128,7 +130,7 @@ export function InsertTab({ editor, onError }: { editor: Editor; onError: (text:
           menu={(close) => (
             <TablePicker
               onPick={(rows, cols) => {
-                run().insertTable({ rows, cols, withHeaderRow: true }).run();
+                run().insertTable({ rows, cols, withHeaderRow: false }).run();
                 close();
               }}
             />
@@ -146,40 +148,7 @@ export function InsertTab({ editor, onError }: { editor: Editor; onError: (text:
           icon={Shapes}
           label={"Shapes\n"}
           title="Shapes"
-          menu={(close) => (
-            <div className="flex w-64 flex-col gap-2 p-1">
-              {SHAPE_GROUPS.map((g) => (
-                <div key={g.name}>
-                  <p className="mb-1 text-xs font-medium text-slate-500">{g.name}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {g.shapes.map((s) => (
-                      <button
-                        key={s.kind}
-                        title={s.name}
-                        aria-label={s.name}
-                        onMouseDown={keepFocus}
-                        onClick={() => {
-                          close();
-                          // Like Word, shapes go in front of the text, so they can be dragged anywhere.
-                          const line = s.kind === "line" || s.kind === "arrowLine";
-                          run()
-                            .insertContent({
-                              type: "image",
-                              attrs: { src: svgUrl(shapeSvg(s.kind)), alt: s.name, wrap: "front", width: 160, height: line ? 60 : 100 },
-                            })
-                            .run();
-                        }}
-                        className="flex h-8 w-8 items-center justify-center rounded hover:bg-slate-100"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- a drawing made here */}
-                        <img src={svgUrl(shapeSvg(s.kind))} alt="" className="max-h-6 max-w-6" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          menu={(close) => <ShapeGallery onPick={(kind) => (close(), drawShape(editor, kind))} />}
         />
         <MenuButton big arrow={false} icon={Network} label="SmartArt" menu={(close) => <SmartArtForm editor={editor} onDone={close} />} />
         <MenuButton big arrow={false} icon={ChartColumnBig} label="Chart" menu={(close) => <ChartForm editor={editor} onDone={close} />} />
@@ -229,6 +198,7 @@ export function InsertTab({ editor, onError }: { editor: Editor; onError: (text:
           menu={(close) => <CrossReferencePanel editor={editor} onDone={close} />}
         />
       </Group>
+      {children}
     </>
   );
 }

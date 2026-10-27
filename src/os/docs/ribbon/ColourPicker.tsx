@@ -6,21 +6,20 @@
 import { ArrowLeft, Pipette } from "lucide-react";
 import { useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
+import { currentPalette, tint } from "../design";
 import { keepFocus, type Swatch } from "./parts";
 
-/** Word's Office theme. */
-const THEME: Swatch[] = [
-  { name: "White", value: "#ffffff" },
-  { name: "Black", value: "#000000" },
-  { name: "Tan", value: "#e7e6e6" },
-  { name: "Dark blue", value: "#44546a" },
-  { name: "Blue", value: "#4472c4" },
-  { name: "Orange", value: "#ed7d31" },
-  { name: "Grey", value: "#a5a5a5" },
-  { name: "Gold", value: "#ffc000" },
-  { name: "Light blue", value: "#5b9bd5" },
-  { name: "Green", value: "#70ad47" },
-];
+/** The document's theme colours (Design › Colors), as Word lists them. */
+function themeColours(): Swatch[] {
+  const p = currentPalette();
+  return [
+    { name: "White, Background 1", value: "#ffffff" },
+    { name: "Black, Text 1", value: "#000000" },
+    { name: "Background 2", value: p.light2 },
+    { name: "Text 2", value: p.dark2 },
+    ...p.accents.map((value, i) => ({ name: `Accent ${i + 1}`, value })),
+  ];
+}
 
 const STANDARD: Swatch[] = [
   { name: "Dark red", value: "#c00000" },
@@ -48,13 +47,6 @@ export function toHex(colour: string | null | undefined): string | null {
   const rgb = c.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
   if (rgb) return `#${rgb.slice(1, 4).map((n) => Math.min(255, Number(n)).toString(16).padStart(2, "0")).join("")}`;
   return null;
-}
-
-/** Mixes a colour towards white (amount > 0) or black (amount < 0). */
-function tint(hex: string, amount: number) {
-  const target = amount > 0 ? 255 : 0;
-  const parts = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  return `#${parts.map((p) => Math.round(p + (target - p) * Math.abs(amount)).toString(16).padStart(2, "0")).join("")}`;
 }
 
 /** Word's five shades under each theme colour (white only gets darker, black only lighter). */
@@ -109,6 +101,7 @@ export function ColourPicker(p: {
   const [more, setMore] = useState(false);
   const [custom, setCustom] = useState(current ?? "#4472c4");
   const [recent] = useState(readRecent);
+  const theme = themeColours();
 
   function pick(value: string) {
     remember(value);
@@ -196,11 +189,11 @@ export function ColourPicker(p: {
         </>
       )}
       <Heading>Theme Colours</Heading>
-      {row(THEME)}
+      {row(theme)}
       {/* The shades go in columns under their colour, as in Word. */}
       <div className="grid grid-cols-[repeat(10,1.125rem)] gap-x-1">
-        {THEME.map((base) => (
-          <div key={base.value} className="flex flex-col">
+        {theme.map((base, i) => (
+          <div key={i} className="flex flex-col">
             {shades(base).map((s) => (
               <SwatchButton key={s.value} swatch={s} selected={current === s.value} onPick={pick} flat />
             ))}
