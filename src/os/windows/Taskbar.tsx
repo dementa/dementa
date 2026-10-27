@@ -2,6 +2,7 @@
 
 import { Search, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import type { Account } from "../account";
 import { getApp, type AppDef, type AppId, type PowerAction } from "../apps";
 import { AppTile, DementaLogo, FullscreenButton, useClock } from "../common";
 import type { WinState } from "../windowManager";
@@ -22,6 +23,7 @@ interface Props {
   onOpenFile: (path: string) => void;
   onShowDesktop: () => void;
   onPower: (action: PowerAction) => void;
+  account: Account | null;
   /** Right-click on a taskbar app (appId) or on the empty taskbar (null). */
   onMenu: (e: MouseEvent, appId: AppId | null) => void;
 }
@@ -56,6 +58,7 @@ export function Taskbar(props: Props) {
             props.onOpenFile(path);
           }}
           onPower={onPower}
+          account={props.account}
         />
       )}
       <nav

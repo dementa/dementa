@@ -42,12 +42,39 @@ export function Drop({ open, onClose, children, align = "left" }: { open: boolea
   );
 }
 
-/** A set of related tools with its name underneath, like "Font" or "Paragraph". */
-export function Group({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * A set of related tools with its name underneath, like "Font" or "Paragraph". `more` is Word's
+ * small ↘ button in the corner, which opens all of the group's settings at once.
+ */
+export function Group({ label, children, more }: { label: string; children: ReactNode; more?: (close: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
   return (
-    <div role="group" aria-label={label} className="flex shrink-0 flex-col items-center justify-between gap-1 px-1.5">
+    <div role="group" aria-label={label} className="relative flex shrink-0 flex-col items-center justify-between gap-1 px-1.5">
       <div className="flex flex-1 items-center gap-1">{children}</div>
-      <span className="text-[11px] leading-none text-slate-500">{label}</span>
+      <span className="flex w-full items-center justify-center text-[11px] leading-none text-slate-500">
+        {label}
+        {more && (
+          <button
+            type="button"
+            title={`${label} Settings`}
+            aria-label={`${label} Settings`}
+            aria-expanded={open}
+            onMouseDown={keepFocus}
+            onClick={() => setOpen((o) => !o)}
+            className="absolute right-0 bottom-0 flex h-3.5 w-3.5 items-center justify-center rounded hover:bg-slate-200"
+          >
+            <svg aria-hidden width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1">
+              <path d="M0.5 0.5h4M0.5 0.5v4M2 2l5.5 5.5M7.5 3.5v4h-4" />
+            </svg>
+          </button>
+        )}
+      </span>
+      {more && (
+        <Drop open={open} onClose={close} align="right">
+          {more(close)}
+        </Drop>
+      )}
     </div>
   );
 }
@@ -149,6 +176,8 @@ export function MenuButton(p: {
   disabled?: boolean;
   /** Tooltip, when it should say more than the name. */
   title?: string;
+  /** A small button with its name beside the icon, like Word's "Breaks ▾". */
+  showLabel?: boolean;
   align?: "left" | "right";
   menu: (close: () => void) => ReactNode;
 }) {
@@ -178,7 +207,10 @@ export function MenuButton(p: {
             {arrow && <ChevronDown size={11} className="ml-0.5 inline-block align-middle" />}
           </span>
         ) : (
-          arrow && <ChevronDown size={11} />
+          <>
+            {p.showLabel && <span className="pl-0.5 text-xs">{p.label}</span>}
+            {arrow && <ChevronDown size={11} />}
+          </>
         )}
       </button>
       <Drop open={open} onClose={close} align={p.align}>

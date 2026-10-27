@@ -23,6 +23,7 @@ import {
 import { useCallback, useEffect, useReducer, useState, type MouseEvent } from "react";
 import { APPS, getApp, READY_APPS, WALLPAPERS, type AppDef, type AppId, type OSStyle, type PowerAction, type Theme, type WallpaperId } from "./apps";
 import { ComingSoon } from "./AppContent";
+import { signOut, type Account } from "./account";
 import { BootScreen } from "./BootScreen";
 import { BrowserApp } from "./browser/BrowserApp";
 import { AppTile } from "./common";
@@ -35,11 +36,14 @@ import { SettingsApp } from "./SettingsApp";
 import { enterFullscreen, exitFullscreen, isFullscreen, launchedFullscreen, toggleFullscreen } from "./fullscreen";
 import { PowerScreen } from "./PowerScreen";
 import { ShutdownScreen } from "./ShutdownScreen";
+import { SignInScreen } from "./SignInScreen";
+import { TerminalApp } from "./terminal/TerminalApp";
 import { Dock, DOCK_RESERVED } from "./mac/Dock";
 import { MenuBar, MENUBAR_HEIGHT } from "./mac/MenuBar";
 import { Window } from "./Window";
 import { initialWM, topWindow, wmReducer } from "./windowManager";
 import { Taskbar, TASKBAR_HEIGHT } from "./windows/Taskbar";
+import { CalculatorApp } from "./calculator/CalculatorApp";
 
 const PREFS_KEY = "dementa-os:prefs";
 
@@ -84,7 +88,9 @@ function savePrefs(prefs: Prefs) {
 
 export function DementaOS() {
   const [prefs, setPrefs] = useState<Prefs | null>(null);
-  const [phase, setPhase] = useState<"off" | "booting" | "desktop" | "shutdown" | "restart">("off");
+  const [phase, setPhase] = useState<"off" | "booting" | "signin" | "desktop" | "shutdown" | "restart">("off");
+  /** Who's signed in; null when using Dementa without an account. */
+  const [account, setAccount] = useState<Account | null>(null);
   const [wm, dispatch] = useReducer(wmReducer, initialWM);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -116,7 +122,11 @@ export function DementaOS() {
     enterFullscreen();
     setPhase("booting");
   }, []);
-  const finishBoot = useCallback(() => setPhase("desktop"), []);
+  const finishBoot = useCallback(() => setPhase("signin"), []);
+  const finishSignIn = useCallback((signedIn: Account | null) => {
+    setAccount(signedIn);
+    setPhase("desktop");
+  }, []);
   const finishShutdown = useCallback(() => {
     exitFullscreen();
     setPhase("off");
@@ -127,6 +137,7 @@ export function DementaOS() {
   if (!prefs) return <div className="fixed inset-0 bg-black" />;
   if (phase === "off") return <PowerScreen onStart={powerOn} />;
   if (phase === "booting") return <BootScreen style={prefs.style} onDone={finishBoot} />;
+  if (phase === "signin") return <SignInScreen wallpaper={prefs.wallpaper} onDone={finishSignIn} />;
   if (phase === "shutdown") return <ShutdownScreen mode="shutdown" onDone={finishShutdown} />;
   if (phase === "restart") return <ShutdownScreen mode="restart" onDone={finishRestart} />;
 
@@ -141,7 +152,12 @@ export function DementaOS() {
   const apps = APPS;
   const power = (mode: PowerAction) => {
     dispatch({ type: "closeAll" });
-    setPhase(mode);
+    if (mode !== "signout") return setPhase(mode);
+    setAccount(null);
+    setPhase("signin");
+    signOut().catch(() => {
+      // Offline: the sign-in screen still shows; the cloud forgets the sign-in when it expires.
+    });
   };
 
   // ---- Right-click menus ----
@@ -301,8 +317,12 @@ export function DementaOS() {
             />
           ) : win.appId === "docs" ? (
             <DocsApp request={docsRequest} />
+          ) : win.appId === "terminal" ? (
+            <TerminalApp account={account} />
           ) : win.appId === "browser" ? (
             <BrowserApp onActivate={() => dispatch({ type: "focus", appId: "browser" })} />
+          ) : win.appId === "calculator" ? (
+            <CalculatorApp />
           ) : (
             <ComingSoon appId={win.appId} />
           )}
@@ -317,6 +337,7 @@ export function DementaOS() {
           onActivate={activate}
           onOpen={open}
           onPower={power}
+          account={account}
           onOpenFile={(path) => {
             setFilesRequest({ path, nonce: Date.now() });
             open("files");
@@ -337,7 +358,7 @@ export function DementaOS() {
         />
       ) : (
         <>
-          <MenuBar activeId={activeId} onOpen={open} onPower={power} />
+          <MenuBar activeId={activeId} onOpen={open} onPower={power} account={account} />
           <Dock apps={apps} windows={wm.windows} onActivate={activate} onOpen={open} onMenu={(e, appId) => showMenu(e, windowMenu(appId))} />
         </>
       )}

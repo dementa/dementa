@@ -24,6 +24,8 @@ const eslintConfig = [
       "dist/**",
       "build/**",
       "next-env.d.ts",
+      // The Terminal's emulator, copied as it's built (see public/v86/README.md).
+      "public/v86/**",
     ],
   },
 ];

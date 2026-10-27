@@ -1,20 +1,43 @@
-// Things the Insert tab puts in a document that Tiptap doesn't ship: page breaks, cover pages,
+// Things the Insert tab puts in a document that Tiptap doesn't ship: page and column breaks, cover pages,
 // bookmarks (with links that jump to them) and charts that can be changed after they're inserted.
 
-import { Extension, Node } from "@tiptap/core";
+import { Extension, Node, type ChainedCommands } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { Plugin, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react";
-import { PictureView } from "./PictureView";
+import { PictureView, stackOf } from "./PictureView";
+import { EDIT_SHAPE_TEXT, isLine, readShape, shapePicture } from "./shapes";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     pageBreak: {
       setPageBreak: () => ReturnType;
     };
+    columnBreak: {
+      setColumnBreak: () => ReturnType;
+    };
   }
 }
+
+/** Puts a page or column break at the cursor, and the cursor on the next line (adding one at the end of the document). */
+const insertBreak = (chain: () => ChainedCommands, type: string) =>
+  chain()
+    .insertContent({ type })
+    .command(({ tr, dispatch }) => {
+      if (dispatch) {
+        const { $to } = tr.selection;
+        if ($to.nodeAfter?.isTextblock) tr.setSelection(TextSelection.create(tr.doc, $to.pos + 1));
+        else if (!$to.nodeAfter) {
+          const end = $to.end();
+          tr.insert(end, tr.doc.type.schema.nodes.paragraph.create());
+          tr.setSelection(TextSelection.create(tr.doc, end + 1));
+        }
+        tr.scrollIntoView();
+      }
+      return true;
+    })
+    .run();
 
 // ---- Page break (Ctrl+Enter, like Word) ----
 
@@ -32,27 +55,31 @@ export const PageBreak = Node.create({
       setPageBreak:
         () =>
         ({ chain }) =>
-          chain()
-            .insertContent({ type: this.name })
-            // Put the cursor on the next line, adding one at the end of the document.
-            .command(({ tr, dispatch }) => {
-              if (dispatch) {
-                const { $to } = tr.selection;
-                if ($to.nodeAfter?.isTextblock) tr.setSelection(TextSelection.create(tr.doc, $to.pos + 1));
-                else if (!$to.nodeAfter) {
-                  const end = $to.end();
-                  tr.insert(end, tr.doc.type.schema.nodes.paragraph.create());
-                  tr.setSelection(TextSelection.create(tr.doc, end + 1));
-                }
-                tr.scrollIntoView();
-              }
-              return true;
-            })
-            .run(),
+          insertBreak(chain, this.name),
     };
   },
   addKeyboardShortcuts() {
     return { "Mod-Enter": () => this.editor.commands.setPageBreak() };
+  },
+});
+
+// ---- Column break (Ctrl+Shift+Enter, like Word) ----
+
+/** Text after it starts at the top of the next column. */
+export const ColumnBreak = PageBreak.extend({
+  name: "columnBreak",
+  parseHTML: () => [{ tag: "div[data-column-break]" }],
+  renderHTML: () => ["div", { "data-column-break": "", style: "break-after: column" }],
+  addCommands() {
+    return {
+      setColumnBreak:
+        () =>
+        ({ chain }) =>
+          insertBreak(chain, this.name),
+    };
+  },
+  addKeyboardShortcuts() {
+    return { "Mod-Shift-Enter": () => this.editor.commands.setColumnBreak() };
   },
 });
 
@@ -167,6 +194,30 @@ export function insertCoverPage(editor: Editor, design: CoverDesign) {
     })
     .run();
 }
+
+// ---- Page numbers ----
+
+/**
+ * Word's PAGE and NUMPAGES fields, for headers and footers: the page's number, or how many pages
+ * there are. Each page fills in its own number when it's drawn (headerFooter.tsx).
+ */
+export const PageField = Node.create({
+  name: "pageField",
+  group: "inline",
+  inline: true,
+  atom: true,
+  addAttributes() {
+    return {
+      kind: {
+        default: "page",
+        parseHTML: (el) => (el.getAttribute("data-field") === "pages" ? "pages" : "page"),
+        renderHTML: (attrs) => ({ "data-field": attrs.kind }),
+      },
+    };
+  },
+  parseHTML: () => [{ tag: "span[data-field]" }],
+  renderHTML: ({ HTMLAttributes }) => ["span", HTMLAttributes],
+});
 
 // ---- Bookmarks and cross-references ----
 
@@ -346,9 +397,29 @@ const number = (value: string | null | undefined) => {
 
 /**
  * Pictures (photos, shapes, SmartArt and charts): their size, and whether they sit in line with the
- * text or in front of it, moved by x and y from where they're anchored. Charts also keep their
+ * text, or in front of or behind it, moved by x and y from where they're anchored (and stacked by z). Charts also keep their
  * settings (data-chart), so they can be opened and changed again.
  */
+/**
+ * How a picture sits with the text: in line with it, with the text flowing around it (Square), on
+ * its own line (Top and Bottom), or anywhere on the page in front of or behind the text.
+ */
+export type Wrap = "inline" | "square" | "topBottom" | "front" | "behind";
+export const WRAPS: Wrap[] = ["inline", "square", "topBottom", "front", "behind"];
+export type Side = "left" | "center" | "right";
+
+/** Word's distance between a picture and the text flowing around it: an eighth of an inch. */
+const WRAP_GAP = 12;
+
+/** The CSS that puts a picture text flows around on its side, or on its own line. */
+export function flowStyle(wrap: Wrap, side: Side) {
+  if (wrap === "square") {
+    // Square wrapping can only be on a side: one in the middle keeps to the left.
+    return side === "right" ? `float: right; margin: 4px 0 4px ${WRAP_GAP}px` : `float: left; margin: 4px ${WRAP_GAP}px 4px 0`;
+  }
+  return `display: block; clear: both; margin: ${side === "left" ? "6px auto 6px 0" : side === "right" ? "6px 0 6px auto" : "6px auto"}`;
+}
+
 export const ChartImage = Image.extend({
   addAttributes() {
     return {
@@ -370,23 +441,73 @@ export const ChartImage = Image.extend({
       },
       wrap: {
         default: "inline",
-        parseHTML: (el) => (el.dataset.wrap === "front" ? "front" : "inline"),
+        parseHTML: (el) => (WRAPS.includes(el.dataset.wrap as Wrap) ? el.dataset.wrap : "inline"),
         // Saved pages show it in the same place; float lets Word files keep it as a floating picture.
         renderHTML: (attrs) =>
-          attrs.wrap === "front"
+          attrs.wrap === "front" || attrs.wrap === "behind"
             ? {
-                "data-wrap": "front",
+                "data-wrap": attrs.wrap,
                 "data-x": attrs.x,
                 "data-y": attrs.y,
-                style: `position: absolute; float: left; z-index: 5; transform: translate(${attrs.x}px, ${attrs.y}px)`,
+                ...(attrs.z ? { "data-z": attrs.z } : {}),
+                style: `position: absolute; float: left; z-index: ${stackOf(attrs.wrap, attrs.z)}; transform: translate(${attrs.x}px, ${attrs.y}px)`,
               }
-            : {},
+            : attrs.wrap === "square" || attrs.wrap === "topBottom"
+              ? { "data-wrap": attrs.wrap, "data-side": attrs.side, style: flowStyle(attrs.wrap, attrs.side) }
+              : {},
+      },
+      /** Which side a picture that text flows around sits on: left or right (or the middle, on its own line). */
+      side: { default: "left", parseHTML: (el) => (["left", "center", "right"].includes(el.dataset.side ?? "") ? el.dataset.side : "left"), renderHTML: () => ({}) },
+      z: { default: 0, parseHTML: (el) => number(el.dataset.z), renderHTML: () => ({}) },
+      /** Pictures grouped together (Arrange › Group) share an id, and move as one. */
+      group: {
+        default: null,
+        parseHTML: (el) => el.dataset.group || null,
+        renderHTML: (attrs) => (attrs.group ? { "data-group": attrs.group } : {}),
       },
       x: { default: 0, parseHTML: (el) => number(el.dataset.x), renderHTML: () => ({}) },
       y: { default: 0, parseHTML: (el) => number(el.dataset.y), renderHTML: () => ({}) },
+      // Shapes (shapes.ts): their fill, outline, text and so on.
+      shape: {
+        default: null,
+        parseHTML: (el) => readShape(el.getAttribute("data-shape")),
+        renderHTML: (attrs) => (attrs.shape ? { "data-shape": JSON.stringify(attrs.shape) } : {}),
+      },
     };
   },
   addNodeView() {
     return ReactNodeViewRenderer(PictureView);
+  },
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        // A shape's saved picture is redrawn whenever its size or settings change.
+        appendTransaction(transactions, _old, state) {
+          if (!transactions.some((t) => t.docChanged)) return null;
+          let tr: Transaction | null = null;
+          state.doc.descendants((node, pos) => {
+            if (node.type.name !== "image" || !node.attrs.shape) return;
+            const src = shapePicture(node.attrs.shape, node.attrs.width ?? 96, node.attrs.height ?? 96);
+            if (src !== node.attrs.src) tr = (tr ?? state.tr).setNodeAttribute(pos, "src", src);
+          });
+          return tr;
+        },
+        props: {
+          // Typing while a shape is selected puts the text in the shape, as in Word.
+          handleKeyDown(view, event) {
+            const { selection } = view.state;
+            if (!(selection instanceof NodeSelection) || !selection.node.attrs.shape || isLine(selection.node.attrs.shape.kind)) return false;
+            const typed = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+            if (!typed && event.key !== "Enter" && event.key !== "F2") return false;
+            const frame = (view.nodeDOM(selection.from) as HTMLElement | null)?.querySelector(".docs-picture-frame");
+            if (!frame) return false;
+            event.preventDefault();
+            frame.dispatchEvent(new CustomEvent(EDIT_SHAPE_TEXT, { detail: typed ? event.key : null }));
+            return true;
+          },
+        },
+      }),
+    ];
   },
 });

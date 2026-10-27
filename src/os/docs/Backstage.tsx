@@ -4,7 +4,8 @@
 
 import { ArrowLeft, FilePlus, FolderOpen, Info, Save, SaveAll, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { MARGINS, PAGE_SIZES, type PageLayout } from "./layout";
+import type { PageLayout } from "./layout";
+import { describeLayout } from "./ribbon/LayoutTab";
 import { RIBBON_BLUE } from "./Ribbon";
 
 type Page = "info" | "new" | "open";
@@ -73,7 +74,7 @@ export function Backstage(p: Props) {
               <dd>{p.characters}</dd>
               <dt className="text-slate-500">Page</dt>
               <dd>
-                {PAGE_SIZES[p.layout.size].label}, {p.layout.orientation}, {MARGINS[p.layout.margins].label.toLowerCase()} margins
+                {describeLayout(p.layout)}
               </dd>
             </dl>
           </>

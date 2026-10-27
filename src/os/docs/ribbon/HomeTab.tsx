@@ -195,7 +195,7 @@ function ClipboardGroup({ editor, onError }: { editor: Editor; onError: (text: s
 // ---- Font ----
 
 /** Fonts every computer has, so documents look the same everywhere. */
-const FONTS = [
+export const FONTS = [
   { name: "Arial", css: "Arial, Helvetica, sans-serif" },
   { name: "Georgia", css: "Georgia, serif" },
   { name: "Times New Roman", css: '"Times New Roman", Times, serif' },
@@ -206,7 +206,7 @@ const FONTS = [
   { name: "Impact", css: "Impact, sans-serif" },
 ];
 
-const SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+export const SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 
 /** Word's default font colour and shading, until another is picked. */
 const FIRST_TEXT_COLOUR = "#ff0000";
@@ -241,7 +241,7 @@ const UNDERLINES: { style: UnderlineStyle; label: string }[] = [
 const firstFamily = (css: string) => css.split(",")[0].trim().replace(/^["']|["']$/g, "").toLowerCase();
 
 /** The size (in points) of the text at the cursor, for the size box. */
-function currentSize(editor: Editor): number {
+export function currentSize(editor: Editor): number {
   const stored = editor.getAttributes("textStyle").fontSize as string | undefined;
   if (stored) {
     const n = parseFloat(stored);

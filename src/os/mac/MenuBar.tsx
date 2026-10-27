@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Account } from "../account";
 import { getApp, type AppId, type PowerAction } from "../apps";
 import { DementaLogo, FullscreenButton, useClock } from "../common";
 
@@ -10,9 +11,10 @@ interface Props {
   activeId: AppId | undefined;
   onOpen: (id: AppId) => void;
   onPower: (action: PowerAction) => void;
+  account: Account | null;
 }
 
-export function MenuBar({ activeId, onOpen, onPower }: Props) {
+export function MenuBar({ activeId, onOpen, onPower, account }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useClock();
 
@@ -65,6 +67,8 @@ export function MenuBar({ activeId, onOpen, onPower }: Props) {
             <hr className="my-1 border-black/10 dark:border-white/10" />
             {item("Restart…", () => onPower("restart"))}
             {item("Shut Down…", () => onPower("shutdown"))}
+            <hr className="my-1 border-black/10 dark:border-white/10" />
+            {item(account ? `Log Out ${account.name}…` : "Log In…", () => onPower("signout"))}
           </div>
         </>
       )}

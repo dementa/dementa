@@ -110,7 +110,8 @@ function MenuPanel({ items, onClose, subOnLeft }: { items: MenuEntry[]; onClose:
               setOpenSub(i);
             }}
             onClick={() => {
-              if (hasSub) return setOpenSub(openSub === i ? null : i);
+              // Hovering has usually opened it already: a click keeps it open.
+              if (hasSub) return setOpenSub(i);
               onClose();
               item.onSelect();
             }}

@@ -1,7 +1,8 @@
 "use client";
 
-import { Power, RotateCcw, Search } from "lucide-react";
+import { LogIn, LogOut, Power, RotateCcw, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { Account } from "../account";
 import { type AppDef, type AppId, type PowerAction } from "../apps";
 import { cloud, type CloudFile } from "../cloud";
 import { AppTile } from "../common";
@@ -16,6 +17,8 @@ interface Props {
   onOpen: (id: AppId) => void;
   onOpenFile: (path: string) => void;
   onPower: (action: PowerAction) => void;
+  /** Who's signed in; null when using Dementa without an account. */
+  account: Account | null;
 }
 
 /** "Just now", "5 min ago", "Yesterday", or a date. */
@@ -29,7 +32,7 @@ function whenText(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
-export function StartMenu({ apps, searchFirst, onClose, onOpen, onOpenFile, onPower }: Props) {
+export function StartMenu({ apps, searchFirst, onClose, onOpen, onOpenFile, onPower, account }: Props) {
   const [query, setQuery] = useState("");
   const [powerOpen, setPowerOpen] = useState(false);
   const [recent, setRecent] = useState<CloudFile[] | null>(null);
@@ -151,9 +154,12 @@ export function StartMenu({ apps, searchFirst, onClose, onOpen, onOpenFile, onPo
         <div className="relative flex items-center gap-3 rounded-b-xl border-t border-black/5 bg-black/[.03] px-6 py-3 dark:border-white/10 dark:bg-white/5">
           <span className="flex flex-1 items-center gap-2.5 text-sm">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 font-semibold text-white">
-              D
+              {(account?.name.trim()[0] ?? "G").toUpperCase()}
             </span>
-            Dementa user
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate">{account?.name ?? "Guest"}</span>
+              {account?.username && <span className="truncate text-xs opacity-60">{account.username}</span>}
+            </span>
           </span>
           <button
             onClick={() => setPowerOpen((o) => !o)}
@@ -166,6 +172,12 @@ export function StartMenu({ apps, searchFirst, onClose, onOpen, onOpenFile, onPo
           </button>
           {powerOpen && (
             <div className="menu-pop absolute right-4 bottom-full mb-1 w-44 rounded-lg border border-black/10 bg-[#f9f9fa] p-1 text-sm shadow-xl dark:border-white/10 dark:bg-[#2c2c2c]">
+              <button
+                onClick={() => onPower("signout")}
+                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                {account ? <LogOut size={16} /> : <LogIn size={16} />} {account ? "Sign out" : "Sign in"}
+              </button>
               <button
                 onClick={() => onPower("restart")}
                 className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
