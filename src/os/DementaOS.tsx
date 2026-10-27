@@ -37,6 +37,7 @@ import { enterFullscreen, exitFullscreen, isFullscreen, launchedFullscreen, togg
 import { PowerScreen } from "./PowerScreen";
 import { ShutdownScreen } from "./ShutdownScreen";
 import { SignInScreen } from "./SignInScreen";
+import { TerminalApp } from "./terminal/TerminalApp";
 import { Dock, DOCK_RESERVED } from "./mac/Dock";
 import { MenuBar, MENUBAR_HEIGHT } from "./mac/MenuBar";
 import { Window } from "./Window";
@@ -315,6 +316,8 @@ export function DementaOS() {
             />
           ) : win.appId === "docs" ? (
             <DocsApp request={docsRequest} />
+          ) : win.appId === "terminal" ? (
+            <TerminalApp account={account} />
           ) : win.appId === "browser" ? (
             <BrowserApp onActivate={() => dispatch({ type: "focus", appId: "browser" })} />
           ) : (

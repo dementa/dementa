@@ -8,6 +8,7 @@ import {
   Presentation,
   Settings,
   Sheet,
+  SquareTerminal,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +22,7 @@ export type AppId =
   | "assignments"
   | "paint"
   | "calculator"
+  | "terminal"
   | "settings"
   | "trash";
 
@@ -50,12 +52,13 @@ export const APPS: AppDef[] = [
   { id: "assignments", name: "Tasks", kind: "Tools", icon: ClipboardList, color: "linear-gradient(135deg,#a77bff,#7041e0)", blurb: "Keep track of your to-dos." },
   { id: "paint", name: "Paint", kind: "Tools", icon: Palette, color: "linear-gradient(135deg,#ff7aa8,#e0346f)", blurb: "Draw and colour pictures." },
   { id: "calculator", name: "Calculator", kind: "Tools", icon: Calculator, color: "linear-gradient(135deg,#6b7a90,#3d4757)", blurb: "Add, subtract, multiply and divide." },
+  { id: "terminal", name: "Terminal", kind: "Tools", icon: SquareTerminal, color: "linear-gradient(135deg,#3a4150,#141821)", blurb: "Linux command line, with your files.", size: { w: 820, h: 520 } },
   { id: "settings", name: "Settings", kind: "System", icon: Settings, color: "linear-gradient(135deg,#8e9aaf,#5b667a)", blurb: "Change how your computer looks.", size: { w: 920, h: 620 } },
   { id: "trash", name: "Recycle Bin", kind: "System", icon: Trash2, image: "/icons/recycle-bin.svg", color: "linear-gradient(135deg,#9aa5b5,#6c7686)", blurb: "Deleted files, ready to restore." },
 ];
 
 /** Apps that work today; the rest still show "Coming soon". */
-export const READY_APPS = new Set<AppId>(["docs", "browser", "files", "settings"]);
+export const READY_APPS = new Set<AppId>(["docs", "browser", "files", "terminal", "settings"]);
 
 export function getApp(id: AppId): AppDef {
   return APPS.find((a) => a.id === id)!;
