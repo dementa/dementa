@@ -43,6 +43,7 @@ import { MenuBar, MENUBAR_HEIGHT } from "./mac/MenuBar";
 import { Window } from "./Window";
 import { initialWM, topWindow, wmReducer } from "./windowManager";
 import { Taskbar, TASKBAR_HEIGHT } from "./windows/Taskbar";
+import { CalculatorApp } from "./calculator/CalculatorApp";
 
 const PREFS_KEY = "dementa-os:prefs";
 
@@ -320,6 +321,8 @@ export function DementaOS() {
             <TerminalApp account={account} />
           ) : win.appId === "browser" ? (
             <BrowserApp onActivate={() => dispatch({ type: "focus", appId: "browser" })} />
+          ) : win.appId === "calculator" ? (
+            <CalculatorApp />
           ) : (
             <ComingSoon appId={win.appId} />
           )}
